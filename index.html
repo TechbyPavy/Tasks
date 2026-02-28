@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Space Debris Simulator</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: radial-gradient(circle at center, #001d3d, #000814);
+        color: #ffffff;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #root {
+        height: 100vh;
+        display: flex;
+      }
+
+      .left-panel {
+        flex: 7;
+        padding: 24px 32px;
+        position: relative;
+      }
+
+      .right-panel {
+        flex: 3;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.4);
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+
+      .subtitle {
+        color: #d0d0d0;
+        font-size: 16px;
+        margin-bottom: 32px;
+      }
+
+      .satellite {
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #0077b6;
+        border: 2px solid #90e0ef;
+        box-shadow: 0 0 12px rgba(144, 224, 239, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        user-select: none;
+      }
+
+      .debris {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #cccccc;
+        border: 1px solid #999999;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+        cursor: grab;
+        user-select: none;
+      }
+
+      .impact-title {
+        font-size: 24px;
+        font-weight: 600;
+      }
+
+      .impact-empty {
+        color: #bbbbbb;
+        font-size: 16px;
+      }
+
+      .impact-box {
+        margin-top: 8px;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 14px;
+      }
+
+      .impact-label {
+        font-weight: 600;
+      }
+
+      .risk-high {
+        color: #ff6b6b;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- React via CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+    <script type="text/javascript">
+      const { useState, useRef, useEffect } = React;
+
+      function ImpactPanel({ impact }) {
+        return React.createElement(
+          "div",
+          { className: "right-panel" },
+          React.createElement("div", { className: "impact-title" }, "Impact Panel"),
+          impact == null
+            ? React.createElement(
+                "div",
+                { className: "impact-empty" },
+                "No impact detected yet."
+              )
+            : React.createElement(
+                "div",
+                { className: "impact-box" },
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("span", { className: "impact-label" }, "Satellite: "),
+                  impact.satelliteName
+                ),
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("span", { className: "impact-label" }, "Impact Energy: "),
+                  impact.energy.toFixed(1),
+                  " kJ"
+                ),
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("span", { className: "impact-label" }, "Damage Probability: "),
+                  Math.round(impact.probability * 100),
+                  "%"
+                ),
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("span", { className: "impact-label" }, "Risk Level: "),
+                  React.createElement("span", { className: "risk-high" }, "High")
+                )
+              )
+        );
+      }
+
+      function App() {
+        const [debrisPos, setDebrisPos] = useState({ x: 100, y: 300 });
+        const [dragging, setDragging] = useState(false);
+        const [offset, setOffset] = useState({ x: 0, y: 0 });
+        const [impact, setImpact] = useState(null);
+
+        const leftRef = useRef(null);
+
+        const satellites = [
+          { id: 1, name: "Satellite 1", x: 200, y: 150 },
+          { id: 2, name: "Satellite 2", x: 400, y: 220 },
+        ];
+
+        function handleMouseDown(e) {
+          setDragging(true);
+          const rect = leftRef.current.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          setOffset({
+            x: mouseX - debrisPos.x,
+            y: mouseY - debrisPos.y,
+          });
+        }
+
+        function handleMouseMove(e) {
+          if (!dragging) return;
+          const rect = leftRef.current.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          setDebrisPos({
+            x: mouseX - offset.x,
+            y: mouseY - offset.y,
+          });
+        }
+
+        function handleMouseUp() {
+          if (!dragging) return;
+          setDragging(false);
+
+          const debrisCenter = {
+            x: debrisPos.x + 10,
+            y: debrisPos.y + 10,
+          };
+
+          const hit = satellites.find((sat) => {
+            const satCenter = { x: sat.x + 30, y: sat.y + 30 };
+            const dx = debrisCenter.x - satCenter.x;
+            const dy = debrisCenter.y - satCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist < 40;
+          });
+
+          if (hit) {
+            setImpact({
+              satelliteName: hit.name,
+              energy: 12.4,
+              probability: 0.78,
+            });
+          } else {
+            setImpact(null);
+          }
+        }
+
+        useEffect(() => {
+          function handleWindowUp() {
+            if (dragging) setDragging(false);
+          }
+          window.addEventListener("mouseup", handleWindowUp);
+          return () => window.removeEventListener("mouseup", handleWindowUp);
+        }, [dragging]);
+
+        return React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(
+            "div",
+            {
+              className: "left-panel",
+              ref: leftRef,
+              onMouseMove: handleMouseMove,
+              onMouseUp: handleMouseUp,
+            },
+            React.createElement("h1", null, "Space Debris Simulator"),
+            React.createElement(
+              "div",
+              { className: "subtitle" },
+              "Drag the debris onto a satellite to trigger a collision."
+            ),
+            satellites.map((sat) =>
+              React.createElement(
+                "div",
+                {
+                  key: sat.id,
+                  className: "satellite",
+                  style: { left: sat.x + "px", top: sat.y + "px" },
+                },
+                "🛰️"
+              )
+            ),
+            React.createElement("div", {
+              className: "debris",
+              style: { left: debrisPos.x + "px", top: debrisPos.y + "px" },
+              onMouseDown: handleMouseDown,
+            })
+          ),
+          React.createElement(ImpactPanel, { impact })
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(React.createElement(App));
+    </script>
+  </body>
+</html>
+
+
